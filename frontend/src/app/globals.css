@@ -1,0 +1,111 @@
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+
+:root {
+  /* Canvas & Surfaces */
+  --bg-void:            #080705;
+  --bg-canvas:          #0E0C09;
+  --bg-surface:         #141210;
+  --bg-surface-raised:  #1A1714;
+  --bg-surface-inset:   #100E0C;
+
+  /* Borders */
+  --border-subtle:      rgba(255, 240, 200, 0.06);
+  --border-default:     rgba(255, 240, 200, 0.10);
+  --border-strong:      rgba(255, 240, 200, 0.18);
+
+  /* Text */
+  --text-primary:       #F2EDE4;
+  --text-secondary:     #8C8070;
+  --text-tertiary:      #524840;
+  --text-inverse:       #0E0C09;
+
+  /* Accent */
+  --accent-glow:        #D97706;
+  --accent-glow-soft:   rgba(217, 119, 6, 0.12);
+  --accent-highlight:   #F59E0B;
+
+  /* Semantic - Success */
+  --success-fg:         #34D399;
+  --success-bg:         rgba(52, 211, 153, 0.10);
+  --success-border:     rgba(52, 211, 153, 0.22);
+
+  /* Semantic - Danger */
+  --danger-fg:          #FB7185;
+  --danger-bg:          rgba(251, 113, 133, 0.10);
+  --danger-border:      rgba(251, 113, 133, 0.22);
+
+  /* Semantic - Warning */
+  --warning-fg:         #FBBF24;
+  --warning-bg:         rgba(251, 191, 36, 0.10);
+  --warning-border:     rgba(251, 191, 36, 0.22);
+
+  /* Semantic - Info */
+  --info-fg:            #60A5FA;
+  --info-bg:            rgba(96, 165, 250, 0.10);
+  --info-border:        rgba(96, 165, 250, 0.22);
+
+  /* SRS Rating Colors */
+  --srs-again:          #FB7185;
+  --srs-hard:           #FBBF24;
+  --srs-good:           #34D399;
+  --srs-easy:           #60A5FA;
+
+  /* Shadows and Glows */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-default);
+  --shadow-focus: 0 0 0 3px rgba(217, 119, 6, 0.30);
+  
+  --shelf-glow: radial-gradient(ellipse 700px 250px at 50% 110%, rgba(217, 119, 6, 0.10), rgba(217, 119, 6, 0) 70%);
+  --card-gradient: linear-gradient(180deg, rgba(255, 245, 220, 0.015) 0%, rgba(255, 245, 220, 0) 60%);
+  --review-glow: radial-gradient(ellipse 400px 200px at 50% 50%, rgba(217, 119, 6, 0.08), rgba(217, 119, 6, 0) 70%);
+}
+
+@theme {
+  --color-void: var(--bg-void);
+  --color-canvas: var(--bg-canvas);
+  
+  --color-surface: var(--bg-surface);
+  --color-surface-raised: var(--bg-surface-raised);
+  --color-surface-inset: var(--bg-surface-inset);
+}
+
+body {
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+.app-main {
+  background-image: var(--shelf-glow);
+  min-height: 100vh;
+}
+
+/* 3D Flip Card Utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+

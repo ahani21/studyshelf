@@ -1,0 +1,221 @@
+'use server'
+
+import { auth } from '@clerk/nextjs/server';
+import { prisma } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
+
+const OPENROUTER_API_KEY = process.env.LLM_API_KEY!;
+const MODEL = 'openai/gpt-oss-20b:free'; // Free model on OpenRouter
+
+async function callAI(content: string) {
+  const messages = [{ role: 'user', content: `${GENERATION_PROMPT}\n\nSTUDY MATERIAL:\n${content}` }];
+
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://studyshelf.app',
+      'X-Title': 'StudyShelf'
+    },
+    body: JSON.stringify({ model: MODEL, messages })
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`AI error: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.choices[0].message.content as string;
+}
+
+interface GeneratedFlashcard {
+  front: string;
+  back: string;
+}
+
+interface GeneratedMCQ {
+  question: string;
+  options: string[];
+  answer: string;
+}
+
+interface GeneratedStudyMaterial {
+  summary: string;
+  flashcards: GeneratedFlashcard[];
+  mcqs: GeneratedMCQ[];
+}
+
+const GENERATION_PROMPT = `You are an expert tutor. Analyze the provided study material and generate structured learning content.
+
+Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
+{
+  "summary": "A concise 2-3 sentence summary of the key concepts",
+  "flashcards": [
+    { "front": "Question or concept", "back": "Answer or explanation" }
+  ],
+  "mcqs": [
+    {
+      "question": "Multiple choice question",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "answer": "The correct option text exactly as written above"
+    }
+  ]
+}
+
+Generate exactly 8 flashcards and 5 MCQs. Focus on the most important concepts.`;
+
+export async function generateFromText(formData: FormData) {
+  const { userId } = await auth();
+  if (!userId) throw new Error('Unauthorized');
+
+  const title = formData.get('title') as string;
+  const content = formData.get('content') as string;
+
+  if (!content || content.trim().length < 50) {
+    throw new Error('Please provide at least 50 characters of content');
+  }
+
+  // Lazy-init user
+  await prisma.user.upsert({
+    where: { id: userId },
+    update: {},
+    create: { id: userId, email: `${userId}@studyshelf.app`, role: 'member' }
+  });
+
+  const text = await callAI(content);
+
+  // Strip markdown code fences if present
+  const jsonText = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+  const generated: GeneratedStudyMaterial = JSON.parse(jsonText);
+
+  // Save note
+  const note = await prisma.note.create({
+    data: { userId, title: title || 'Untitled Note', content }
+  });
+
+  // Save flashcards with SRS
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const savedFlashcards = [];
+  for (const fc of generated.flashcards) {
+    const srs = await prisma.sRSData.create({
+      data: { interval: 1, easeFactor: 2.50, dueDate: today }
+    });
+    const flashcard = await prisma.flashcard.create({
+      data: { userId, front: fc.front, back: fc.back, srsId: srs.id }
+    });
+    await prisma.sRSData.update({
+      where: { id: srs.id },
+      data: { flashcardId: flashcard.id }
+    });
+    savedFlashcards.push(flashcard);
+  }
+
+  // Save MCQs
+  for (const mcq of generated.mcqs) {
+    await prisma.mCQ.create({
+      data: { userId, question: mcq.question, options: mcq.options, answer: mcq.answer }
+    });
+  }
+
+  revalidatePath('/ai');
+
+  return {
+    summary: generated.summary,
+    flashcards: generated.flashcards,
+    mcqs: generated.mcqs,
+    noteId: note.id,
+    flashcardCount: savedFlashcards.length
+  };
+}
+
+export async function generateFromPDF(formData: FormData) {
+  const { userId } = await auth();
+  if (!userId) throw new Error('Unauthorized');
+
+  const file = formData.get('pdf') as File;
+  const title = formData.get('title') as string;
+
+  if (!file) throw new Error('No file provided');
+
+  // Lazy-init user
+  await prisma.user.upsert({
+    where: { id: userId },
+    update: {},
+    create: { id: userId, email: `${userId}@studyshelf.app`, role: 'member' }
+  });
+
+  // Extract text from PDF using pdf-parse
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  
+  let extractedText = '';
+  try {
+    // Use the lib path directly to avoid Next.js/pdf-parse compatibility issues
+    const pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default;
+    const pdfData = await pdfParse(buffer);
+    extractedText = pdfData.text;
+  } catch (e) {
+    console.error('PDF parse error:', e);
+    throw new Error('Could not read PDF. Please make sure it contains selectable text (not a scanned image).');
+  }
+
+  if (!extractedText || extractedText.trim().length < 50) {
+    throw new Error('PDF appears to be empty or contains only images. Please use a PDF with selectable text.');
+  }
+
+  // Truncate to avoid token limits (approx 12k chars = ~3k tokens)
+  const truncated = extractedText.substring(0, 12000);
+
+  const text = await callAI(truncated);
+  const jsonText = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+  const generated: GeneratedStudyMaterial = JSON.parse(jsonText);
+
+  // Save note with PDF summary
+  const note = await prisma.note.create({
+    data: {
+      userId,
+      title: title || file.name.replace('.pdf', ''),
+      content: generated.summary
+    }
+  });
+
+  // Save flashcards with SRS
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const savedFlashcards = [];
+  for (const fc of generated.flashcards) {
+    const srs = await prisma.sRSData.create({
+      data: { interval: 1, easeFactor: 2.50, dueDate: today }
+    });
+    const flashcard = await prisma.flashcard.create({
+      data: { userId, front: fc.front, back: fc.back, srsId: srs.id }
+    });
+    await prisma.sRSData.update({
+      where: { id: srs.id },
+      data: { flashcardId: flashcard.id }
+    });
+    savedFlashcards.push(flashcard);
+  }
+
+  // Save MCQs
+  for (const mcq of generated.mcqs) {
+    await prisma.mCQ.create({
+      data: { userId, question: mcq.question, options: mcq.options, answer: mcq.answer }
+    });
+  }
+
+  revalidatePath('/ai');
+
+  return {
+    summary: generated.summary,
+    flashcards: generated.flashcards,
+    mcqs: generated.mcqs,
+    noteId: note.id,
+    flashcardCount: savedFlashcards.length
+  };
+}

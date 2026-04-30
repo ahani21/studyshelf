@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model User {
+  id          String       @id @default(uuid()) // Clerk Auth user ID
+  email       String       @unique
+  activeOrgId String?
+  role        String       @default("viewer") // admin/member/viewer
+  createdAt   DateTime     @default(now())
+  
+  resources   Resource[]
+  collections Collection[]
+  notes       Note[]
+  flashcards  Flashcard[]
+  mcqs        MCQ[]
+}
+
+model Resource {
+  id           Int       @id @default(autoincrement())
+  userId       String
+  url          String
+  canonicalUrl String
+  title        String
+  description  String?
+  imageUrl     String?
+  cleanContent String?
+  srsId        Int?      @unique
+  createdAt    DateTime  @default(now())
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  srsData      SRSData?  @relation(fields: [srsId], references: [id], onDelete: SetNull)
+
+  tags         ResourceTag[]
+  collections  ResourceCollection[]
+
+  @@unique([userId, canonicalUrl])
+}
+
+model Collection {
+  id          Int       @id @default(autoincrement())
+  userId      String
+  name        String
+  icon        String?
+  parentId    Int?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      Collection?  @relation("ParentChild", fields: [parentId], references: [id])
+  children    Collection[] @relation("ParentChild")
+
+  resources   ResourceCollection[]
+}
+
+model Tag {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  color       String?
+
+  resources   ResourceTag[]
+}
+
+model ResourceTag {
+  resourceId  Int
+  tagId       Int
+  taggedAt    DateTime  @default(now())
+  source      String    // "user" or "ai"
+
+  resource    Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, tagId])
+  @@index([resourceId, tagId])
+}
+
+model ResourceCollection {
+  resourceId   Int
+  collectionId Int
+
+  resource     Resource   @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, collectionId])
+}
+
+model SRSData {
+  id            Int       @id @default(autoincrement())
+  resourceId    Int?      @unique
+  flashcardId   Int?      @unique
+  interval      Int       @default(1)
+  easeFactor    Decimal   @default(2.50) @db.Decimal(3,2)
+  dueDate       DateTime  @db.Date
+  lastReviewed  DateTime?
+  reviewCount   Int       @default(0)
+  skipCount     Int       @default(0)
+
+  resource      Resource?
+  flashcard     Flashcard?
+
+  @@index([dueDate])
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  title     String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Flashcard {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  front     String   @db.Text
+  back      String   @db.Text
+  srsId     Int?     @unique
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  srsData   SRSData? @relation(fields: [srsId], references: [id], onDelete: SetNull)
+}
+
+model MCQ {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  question  String   @db.Text
+  options   String[] 
+  answer    String   @db.Text
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
