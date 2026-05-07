@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ExternalLink, BrainCircuit, ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import { rateItem, skipItem, archiveItem, deleteReviewResource, deleteReviewFlashcard } from '@/server/actions/review';
 
@@ -27,7 +27,7 @@ export default function ReviewInterface({ initialQueue }: { initialQueue: any[] 
   const currentItem = queue[0];
   const isFlashcard = currentItem.type === 'flashcard';
 
-  const handleRate = async (rating: 'again' | 'hard' | 'good' | 'easy') => {
+  const handleRate = useCallback(async (rating: 'again' | 'hard' | 'good' | 'easy') => {
     setLoading(true);
     try {
       await rateItem(currentItem.srsId, rating);
@@ -38,9 +38,9 @@ export default function ReviewInterface({ initialQueue }: { initialQueue: any[] 
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentItem]);
 
-  const handleSkip = async () => {
+  const handleSkip = useCallback(async () => {
     setLoading(true);
     try {
       const { skipCount } = await skipItem(currentItem.srsId);
@@ -55,7 +55,40 @@ export default function ReviewInterface({ initialQueue }: { initialQueue: any[] 
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentItem]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+      if (queue.length === 0 || showArchivalModal || loading) return;
+
+      switch(e.key) {
+        case ' ':
+          e.preventDefault();
+          if (isFlashcard) setIsFlipped(prev => !prev);
+          break;
+        case '1':
+          if (isFlipped || !isFlashcard) handleRate('again');
+          break;
+        case '2':
+          if (isFlipped || !isFlashcard) handleRate('hard');
+          break;
+        case '3':
+          if (isFlipped || !isFlashcard) handleRate('good');
+          break;
+        case '4':
+          if (isFlipped || !isFlashcard) handleRate('easy');
+          break;
+        case 's':
+          handleSkip();
+          break;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [queue.length, showArchivalModal, loading, isFlipped, isFlashcard, handleRate, handleSkip]);
+
 
   const handleArchive = async () => {
     setLoading(true);
@@ -102,9 +135,14 @@ export default function ReviewInterface({ initialQueue }: { initialQueue: any[] 
           {isFlashcard ? <Sparkles className="w-3 h-3 text-accent-glow" /> : <ExternalLink className="w-3 h-3" />}
           {queue.length} REMAINING
         </span>
-        <button onClick={handleSkip} disabled={loading} className="text-body-sm text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50 flex items-center gap-2">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Skip for now <ArrowRight className="w-4 h-4" /></>}
-        </button>
+        <div className="flex gap-6 items-center">
+          <button onClick={handleDelete} disabled={loading} className="text-body-sm text-danger-fg hover:text-danger-fg/80 transition-colors disabled:opacity-50">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : 'Delete item'}
+          </button>
+          <button onClick={handleSkip} disabled={loading} className="text-body-sm text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50 flex items-center gap-2">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Skip for now <ArrowRight className="w-4 h-4" /></>}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col relative z-10">
@@ -113,21 +151,37 @@ export default function ReviewInterface({ initialQueue }: { initialQueue: any[] 
         
         {isFlashcard ? (
           <div 
-            className="group perspective-1000 flex-1 mb-8 cursor-pointer"
+            className="group perspective-1000 mb-8 cursor-pointer h-[400px] md:h-[450px] w-full relative"
             onClick={() => setIsFlipped(!isFlipped)}
           >
             <div className={`relative w-full h-full transition-all duration-500 preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
               {/* Front */}
-              <div className="absolute inset-0 backface-hidden card bg-surface border border-border-default rounded-2xl shadow-[var(--shadow-raised)] p-8 md:p-12 flex flex-col items-center justify-center text-center">
-                <span className="text-micro font-semibold uppercase tracking-widest text-text-tertiary mb-6">Question</span>
-                <h2 className="text-display-md font-display text-text-primary">{currentItem.flashcard.front}</h2>
-                <p className="mt-8 text-body-sm text-text-tertiary">Click card to reveal answer</p>
+              <div className="absolute inset-0 backface-hidden card bg-surface border border-border-default rounded-2xl shadow-[var(--shadow-raised)] p-8 flex flex-col items-center justify-between text-center overflow-hidden">
+                <span className="text-micro font-semibold uppercase tracking-widest text-text-tertiary shrink-0">Question</span>
+                <div className="flex-1 flex items-center justify-center w-full my-6 overflow-y-auto custom-scrollbar">
+                  <h2 className="text-display-sm font-display text-text-primary leading-tight">
+                    {currentItem.flashcard.front}
+                  </h2>
+                </div>
+                <p className="text-body-sm text-text-tertiary shrink-0">Click card to reveal answer</p>
               </div>
+              
               {/* Back */}
-              <div className="absolute inset-0 backface-hidden rotate-y-180 card bg-surface-raised border border-accent-glow/30 rounded-2xl shadow-[var(--shadow-raised)] p-8 md:p-12 flex flex-col items-center justify-center text-center">
-                <span className="text-micro font-semibold uppercase tracking-widest text-accent-glow mb-6">Answer</span>
-                <h2 className="text-display-md font-display text-text-primary">{currentItem.flashcard.back}</h2>
-                <p className="mt-8 text-body-sm text-text-tertiary">Click card to see question</p>
+              <div className="absolute inset-0 backface-hidden rotate-y-180 card bg-surface-raised border border-accent-glow/30 rounded-2xl shadow-[var(--shadow-raised)] p-8 flex flex-col items-center justify-between text-center overflow-hidden">
+                <span className="text-micro font-semibold uppercase tracking-widest text-accent-glow shrink-0">Answer</span>
+                <div className="flex-1 flex flex-col items-center justify-center w-full my-6 overflow-y-auto custom-scrollbar">
+                  <h2 className="text-display-sm font-display text-text-primary leading-tight">
+                    {currentItem.flashcard.back}
+                  </h2>
+                  {currentItem.flashcard.explanation && (
+                    <div className="mt-6 p-4 bg-surface-inset rounded-xl text-body-sm text-text-secondary border border-border-subtle w-full text-left relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-accent-glow/50" />
+                      <span className="font-semibold text-text-primary mb-1 block uppercase tracking-wider text-[10px]">Explanation</span>
+                      {currentItem.flashcard.explanation}
+                    </div>
+                  )}
+                </div>
+                <p className="text-body-sm text-text-tertiary shrink-0">Space to flip • 1-4 to rate</p>
               </div>
             </div>
           </div>

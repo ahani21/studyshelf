@@ -4,62 +4,51 @@
 :root {
   /* Canvas & Surfaces */
   --bg-void:            #080705;
-  --bg-canvas:          #0E0C09;
-  --bg-surface:         #141210;
-  --bg-surface-raised:  #1A1714;
-  --bg-surface-inset:   #100E0C;
+  --bg-canvas:          #FFFFFF;
+  --bg-page:            #F8F9FA;
+  --bg-surface:         #FFFFFF;
+  --bg-surface-raised:  #F1F3F5;
+  --bg-surface-inset:   #E9ECEF;
+
+  /* Design Tokens */
+  --primary-accent:     #534AB7;
+  --light-purple-fill:  #EEEDFE;
+  --active-text:        #3C3489;
+  --teal-accent:        #1D9E75;
+  --amber-accent:       #BA7517;
+  --coral-accent:       #993C1D;
 
   /* Borders */
-  --border-subtle:      rgba(255, 240, 200, 0.06);
-  --border-default:     rgba(255, 240, 200, 0.10);
-  --border-strong:      rgba(255, 240, 200, 0.18);
+  --border-subtle:      rgba(0, 0, 0, 0.05);
+  --border-default:     rgba(0, 0, 0, 0.10);
+  --border-strong:      rgba(0, 0, 0, 0.18);
+  --border-width:       0.5px;
 
   /* Text */
+  --text-primary:       #1A1A1A;
+  --text-secondary:     #666666;
+  --text-tertiary:      #999999;
+  --text-muted:         #ADB5BD;
+
+  /* Shadows and Glows (Disabled per prompt) */
+  --shadow-card: none;
+  --shadow-raised: none;
+  --shadow-focus: 0 0 0 2px var(--light-purple-fill);
+}
+
+[data-theme='dark'] {
+  --bg-void:            #080705;
+  --bg-canvas:          #141210;
+  --bg-page:            #0E0C09;
+  --bg-surface:         #1A1714;
+  --bg-surface-raised:  #25211E;
   --text-primary:       #F2EDE4;
   --text-secondary:     #8C8070;
   --text-tertiary:      #524840;
-  --text-inverse:       #0E0C09;
-
-  /* Accent */
-  --accent-glow:        #D97706;
-  --accent-glow-soft:   rgba(217, 119, 6, 0.12);
-  --accent-highlight:   #F59E0B;
-
-  /* Semantic - Success */
-  --success-fg:         #34D399;
-  --success-bg:         rgba(52, 211, 153, 0.10);
-  --success-border:     rgba(52, 211, 153, 0.22);
-
-  /* Semantic - Danger */
-  --danger-fg:          #FB7185;
-  --danger-bg:          rgba(251, 113, 133, 0.10);
-  --danger-border:      rgba(251, 113, 133, 0.22);
-
-  /* Semantic - Warning */
-  --warning-fg:         #FBBF24;
-  --warning-bg:         rgba(251, 191, 36, 0.10);
-  --warning-border:     rgba(251, 191, 36, 0.22);
-
-  /* Semantic - Info */
-  --info-fg:            #60A5FA;
-  --info-bg:            rgba(96, 165, 250, 0.10);
-  --info-border:        rgba(96, 165, 250, 0.22);
-
-  /* SRS Rating Colors */
-  --srs-again:          #FB7185;
-  --srs-hard:           #FBBF24;
-  --srs-good:           #34D399;
-  --srs-easy:           #60A5FA;
-
-  /* Shadows and Glows */
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
-  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-default);
-  --shadow-focus: 0 0 0 3px rgba(217, 119, 6, 0.30);
-  
-  --shelf-glow: radial-gradient(ellipse 700px 250px at 50% 110%, rgba(217, 119, 6, 0.10), rgba(217, 119, 6, 0) 70%);
-  --card-gradient: linear-gradient(180deg, rgba(255, 245, 220, 0.015) 0%, rgba(255, 245, 220, 0) 60%);
-  --review-glow: radial-gradient(ellipse 400px 200px at 50% 50%, rgba(217, 119, 6, 0.08), rgba(217, 119, 6, 0) 70%);
+  --border-subtle:      rgba(255, 240, 200, 0.06);
+  --border-default:     rgba(255, 240, 200, 0.10);
 }
+
 
 @theme {
   --color-void: var(--bg-void);
@@ -71,14 +60,19 @@
 }
 
 body {
-  background: var(--bg-void);
+  background: var(--bg-canvas);
   color: var(--text-primary);
-  font-family: var(--font-body);
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
 }
 
 .app-main {
-  background-image: var(--shelf-glow);
+  background-color: var(--bg-page);
   min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 500;
 }
 
 /* 3D Flip Card Utilities */
@@ -106,6 +100,29 @@ body {
 
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* Custom Scrollbar for Cards */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-glow);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 

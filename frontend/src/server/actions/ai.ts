@@ -33,6 +33,9 @@ async function callAI(content: string) {
 interface GeneratedFlashcard {
   front: string;
   back: string;
+  explanation: string;
+  difficulty: number;
+  cardType: string;
 }
 
 interface GeneratedMCQ {
@@ -53,7 +56,13 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
 {
   "summary": "A concise 2-3 sentence summary of the key concepts",
   "flashcards": [
-    { "front": "Question or concept", "back": "Answer or explanation" }
+    { 
+      "front": "Question or concept", 
+      "back": "Answer",
+      "explanation": "A detailed 1-2 sentence breakdown of WHY this is the answer",
+      "difficulty": 3,
+      "cardType": "BASIC" 
+    }
   ],
   "mcqs": [
     {
@@ -64,7 +73,9 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
   ]
 }
 
-Generate exactly 8 flashcards and 5 MCQs. Focus on the most important concepts.`;
+Generate exactly 8 flashcards and 5 MCQs. Focus on the most important, high-yield concepts. Avoid trivial facts. Create cards that test "Why" and "How", not just "What". Ensure progressive difficulty from basic definitions (difficulty 1-2) to complex reasoning (difficulty 4-5). cardType should be "BASIC", "CLOZE", or "TRUE_FALSE".`;
+
+const sanitize = (str: string | undefined | null) => str ? str.replace(/\u0000/g, '') : '';
 
 export async function generateFromText(formData: FormData) {
   const { userId } = await auth();
@@ -84,15 +95,19 @@ export async function generateFromText(formData: FormData) {
     create: { id: userId, email: `${userId}@studyshelf.app`, role: 'member' }
   });
 
-  const text = await callAI(content);
+  const text = await callAI(sanitize(content));
 
   // Strip markdown code fences if present
-  const jsonText = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+  const jsonText = text.replace(/^```json\n?/, '').replace(/\n?```$/, '').replace(/\u0000/g, '');
   const generated: GeneratedStudyMaterial = JSON.parse(jsonText);
 
   // Save note
   const note = await prisma.note.create({
-    data: { userId, title: title || 'Untitled Note', content }
+    data: { 
+      userId, 
+      title: sanitize(title || 'Untitled Note').substring(0, 255), 
+      content: sanitize(content) 
+    }
   });
 
   // Save flashcards with SRS
@@ -105,7 +120,15 @@ export async function generateFromText(formData: FormData) {
       data: { interval: 1, easeFactor: 2.50, dueDate: today }
     });
     const flashcard = await prisma.flashcard.create({
-      data: { userId, front: fc.front, back: fc.back, srsId: srs.id }
+      data: { 
+        userId, 
+        front: sanitize(fc.front), 
+        back: sanitize(fc.back), 
+        explanation: sanitize(fc.explanation),
+        difficulty: fc.difficulty || 3,
+        cardType: sanitize(fc.cardType) || 'BASIC',
+        srsId: srs.id 
+      }
     });
     await prisma.sRSData.update({
       where: { id: srs.id },
@@ -117,7 +140,12 @@ export async function generateFromText(formData: FormData) {
   // Save MCQs
   for (const mcq of generated.mcqs) {
     await prisma.mCQ.create({
-      data: { userId, question: mcq.question, options: mcq.options, answer: mcq.answer }
+      data: { 
+        userId, 
+        question: sanitize(mcq.question), 
+        options: mcq.options.map(o => sanitize(o)), 
+        answer: sanitize(mcq.answer) 
+      }
     });
   }
 
@@ -154,10 +182,9 @@ export async function generateFromPDF(formData: FormData) {
   
   let extractedText = '';
   try {
-    // Use the lib path directly to avoid Next.js/pdf-parse compatibility issues
-    const pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default;
+    const pdfParse = (await import('pdf-parse')).default;
     const pdfData = await pdfParse(buffer);
-    extractedText = pdfData.text;
+    extractedText = sanitize(pdfData.text);
   } catch (e) {
     console.error('PDF parse error:', e);
     throw new Error('Could not read PDF. Please make sure it contains selectable text (not a scanned image).');
@@ -171,15 +198,15 @@ export async function generateFromPDF(formData: FormData) {
   const truncated = extractedText.substring(0, 12000);
 
   const text = await callAI(truncated);
-  const jsonText = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+  const jsonText = text.replace(/^```json\n?/, '').replace(/\n?```$/, '').replace(/\u0000/g, '');
   const generated: GeneratedStudyMaterial = JSON.parse(jsonText);
 
   // Save note with PDF summary
   const note = await prisma.note.create({
     data: {
       userId,
-      title: title || file.name.replace('.pdf', ''),
-      content: generated.summary
+      title: sanitize(title || file.name.replace('.pdf', '')).substring(0, 255),
+      content: sanitize(generated.summary)
     }
   });
 
@@ -193,7 +220,15 @@ export async function generateFromPDF(formData: FormData) {
       data: { interval: 1, easeFactor: 2.50, dueDate: today }
     });
     const flashcard = await prisma.flashcard.create({
-      data: { userId, front: fc.front, back: fc.back, srsId: srs.id }
+      data: { 
+        userId, 
+        front: sanitize(fc.front), 
+        back: sanitize(fc.back), 
+        explanation: sanitize(fc.explanation),
+        difficulty: fc.difficulty || 3,
+        cardType: sanitize(fc.cardType) || 'BASIC',
+        srsId: srs.id 
+      }
     });
     await prisma.sRSData.update({
       where: { id: srs.id },
@@ -205,7 +240,12 @@ export async function generateFromPDF(formData: FormData) {
   // Save MCQs
   for (const mcq of generated.mcqs) {
     await prisma.mCQ.create({
-      data: { userId, question: mcq.question, options: mcq.options, answer: mcq.answer }
+      data: { 
+        userId, 
+        question: sanitize(mcq.question), 
+        options: mcq.options.map(o => sanitize(o)), 
+        answer: sanitize(mcq.answer) 
+      }
     });
   }
 

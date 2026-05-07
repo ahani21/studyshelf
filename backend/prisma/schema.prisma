@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 model User {
@@ -13,11 +14,13 @@ model User {
   role        String       @default("viewer") // admin/member/viewer
   createdAt   DateTime     @default(now())
   
-  resources   Resource[]
-  collections Collection[]
-  notes       Note[]
-  flashcards  Flashcard[]
-  mcqs        MCQ[]
+  resources     Resource[]
+  collections   Collection[]
+  notes         Note[]
+  flashcards    Flashcard[]
+  mcqs          MCQ[]
+  activityLogs  ActivityLog[]
+  studySessions StudySession[]
 }
 
 model Resource {
@@ -97,6 +100,10 @@ model SRSData {
   lastReviewed  DateTime?
   reviewCount   Int       @default(0)
   skipCount     Int       @default(0)
+  lapses        Int       @default(0)
+  repetitions   Int       @default(0)
+  masteryLevel  Float     @default(0.0)
+  retentionScore Float    @default(0.0)
 
   resource      Resource?
   flashcard     Flashcard?
@@ -117,10 +124,14 @@ model Note {
 model Flashcard {
   id        Int      @id @default(autoincrement())
   userId    String
-  front     String   @db.Text
-  back      String   @db.Text
-  srsId     Int?     @unique
-  createdAt DateTime @default(now())
+  front       String   @db.Text
+  back        String   @db.Text
+  explanation String?  @db.Text
+  difficulty  Int      @default(3)
+  cardType    String   @default("BASIC")
+  createdByAI Boolean  @default(true)
+  srsId       Int?     @unique
+  createdAt   DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   srsData   SRSData? @relation(fields: [srsId], references: [id], onDelete: SetNull)
@@ -135,4 +146,29 @@ model MCQ {
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  type      String   // "REVIEW", "UPLOAD", "COLLECTION_CREATED"
+  resourceId Int?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model StudySession {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  startTime DateTime @default(now())
+  endTime   DateTime?
+  duration  Int?     // in seconds
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startTime])
 }

@@ -1,16 +1,43 @@
-import { ExternalLink, Clock } from 'lucide-react';
+'use client'
+
+import { useState } from 'react';
+import { ExternalLink, Clock, Trash2, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { deleteResourceAction } from '@/server/actions/resource';
 
 export default function ResourceCard({ resource }: { resource: any }) {
+  const [isDeleting, setIsDeleting] = useState(false);
   // Use domain as fallback if description isn't available
   let domain = "";
   try {
     domain = new URL(resource.canonicalUrl).hostname;
   } catch(e) {}
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (confirm("Are you sure you want to delete this resource?")) {
+      setIsDeleting(true);
+      try {
+        await deleteResourceAction(resource.id);
+      } catch (err) {
+        console.error("Failed to delete", err);
+        setIsDeleting(false);
+      }
+    }
+  };
+
   return (
-    <div className="card group relative flex flex-col h-[320px] overflow-hidden hover:-translate-y-1 transition-all duration-300 border border-border-default bg-surface hover:border-border-subtle hover:shadow-[var(--shadow-raised)] rounded-xl">
+    <div className={`card group relative flex flex-col h-[320px] overflow-hidden hover:-translate-y-1 transition-all duration-300 border border-border-default bg-surface hover:border-border-subtle hover:shadow-[var(--shadow-raised)] rounded-xl ${isDeleting ? 'opacity-50 pointer-events-none' : ''}`}>
       
+      {/* Delete Button */}
+      <button 
+        onClick={handleDelete}
+        className="absolute top-3 right-3 z-10 p-2 bg-surface/80 backdrop-blur-sm border border-border-default rounded-full text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity hover:bg-danger-bg hover:text-danger-fg hover:border-danger-border shadow-sm"
+        title="Delete resource"
+      >
+        {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+      </button>
+
       {/* Thumbnail */}
       <div className="h-32 w-full bg-surface-inset border-b border-border-default relative shrink-0 overflow-hidden">
         {resource.imageUrl ? (

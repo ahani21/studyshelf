@@ -1,128 +1,101 @@
+'use client'
+
 import Link from 'next/link';
-import { BookOpen, LayoutDashboard, Bookmark, Brain, FolderOpen, Tag, BarChart2, Users, Settings, LogOut, Sparkles } from 'lucide-react';
-import { OrganizationSwitcher, SignOutButton } from '@clerk/nextjs';
-import { auth } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/db';
+import { usePathname } from 'next/navigation';
+import { UserButton } from '@clerk/nextjs';
+import { 
+  LayoutDashboard, 
+  Sparkles, 
+  Bookmark, 
+  BrainCircuit, 
+  BarChart3, 
+  Users2, 
+  Settings2,
+  Flame,
+  Library
+} from 'lucide-react';
 
-export default async function Sidebar() {
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.role as string) || 'member';
-
-  let dueTodayCount = 0;
-  if (userId) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    try {
-      dueTodayCount = await prisma.sRSData.count({
-        where: {
-          OR: [
-            { resource: { userId } },
-            { flashcard: { userId } }
-          ],
-          dueDate: {
-            gte: today,
-            lt: tomorrow,
-          }
-        }
-      });
-    } catch (e) {
-      console.error("Failed to fetch SRS Data for badge", e);
-    }
-  }
+export default function Sidebar() {
+  const pathname = usePathname();
+  
+  const getLinkClass = (path: string) => {
+    const isActive = pathname === path;
+    return `flex items-center gap-3 px-3 py-2 rounded-md text-[13px] transition-colors ${
+      isActive 
+        ? "bg-[#EEEDFE] text-[#3C3489] font-medium" 
+        : "text-[#666666] hover:bg-surface-raised hover:text-[#1A1A1A]"
+    }`;
+  };
 
   return (
-    <aside className="w-[260px] h-screen border-r border-border-subtle bg-canvas flex-col hidden lg:flex shrink-0">
-      <div className="p-6 flex items-center gap-3 border-b border-border-subtle h-20 shrink-0">
-        <BookOpen className="w-6 h-6 text-accent-glow" />
-        <span className="text-h3 font-display text-text-primary">StudyShelf</span>
+    <aside className="w-[200px] h-screen border-r border-border-subtle bg-white flex flex-col hidden lg:flex shrink-0 z-20">
+      {/* Logo Lockup */}
+      <div className="p-5 flex items-center gap-2 mb-2">
+        <div className="w-7 h-7 rounded-[6px] bg-[#EEEDFE] flex items-center justify-center">
+          <Library className="w-4 h-4 text-[#534AB7]" />
+        </div>
+        <span className="text-[14px] font-medium text-[#1A1A1A]">StudyShelf</span>
       </div>
 
-      <div className="p-4 border-b border-border-subtle shrink-0">
-        <OrganizationSwitcher 
-          appearance={{
-            elements: {
-              organizationSwitcherTrigger: "w-full flex items-center justify-between p-2 rounded-md hover:bg-surface-raised text-body text-text-primary font-semibold border border-border-default",
-              organizationSwitcherTriggerIcon: "text-text-secondary",
-              userPreviewMainIdentifier: "text-text-primary font-semibold",
-              userPreviewSecondaryIdentifier: "text-text-tertiary",
-              organizationPreviewMainIdentifier: "text-text-primary font-semibold",
-              organizationPreviewSecondaryIdentifier: "text-text-tertiary",
-            }
-          }}
-          hidePersonal={false}
-        />
-      </div>
-
-      <nav className="flex-1 overflow-y-auto p-4 space-y-6">
-        <div className="space-y-1">
-          <div className="text-label text-text-tertiary mb-2 px-4">STUDY</div>
-          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-surface hover:text-text-primary transition-colors">
-            <LayoutDashboard className="w-5 h-5" />
-            Dashboard
-          </Link>
-          <Link href="/shelf" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-surface hover:text-text-primary transition-colors">
-            <Bookmark className="w-5 h-5" />
-            My Shelf
-          </Link>
-          <Link href="/review" className="flex items-center justify-between px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-surface hover:text-text-primary transition-colors">
-            <div className="flex items-center gap-3">
-              <Brain className="w-5 h-5" />
+      <nav className="flex-1 px-3 space-y-6">
+        {/* MAIN Section */}
+        <div>
+          <div className="px-3 text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">MAIN</div>
+          <div className="space-y-0.5">
+            <Link href="/dashboard" className={getLinkClass('/dashboard')}>
+              <LayoutDashboard className="w-4 h-4" />
+              Dashboard
+            </Link>
+            <Link href="/ai" className={getLinkClass('/ai')}>
+              <Sparkles className="w-4 h-4" />
+              AI Studio
+            </Link>
+            <Link href="/shelf" className={getLinkClass('/shelf')}>
+              <Bookmark className="w-4 h-4" />
+              My Shelf
+            </Link>
+            <Link href="/review" className={getLinkClass('/review')}>
+              <BrainCircuit className="w-4 h-4" />
               Review Queue
-            </div>
-            {dueTodayCount > 0 && (
-              <span className="px-2 py-0.5 text-micro rounded-full bg-warning-bg text-warning-fg border border-warning-border">{dueTodayCount}</span>
-            )}
-          </Link>
-          <Link href="/ai" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-surface hover:text-text-primary transition-colors group">
-            <Sparkles className="w-5 h-5 text-accent-glow group-hover:animate-pulse" />
-            <span>AI Studio</span>
-            <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-glow/20 text-accent-glow border border-accent-glow/30">NEW</span>
-          </Link>
-        </div>
-
-        <div className="space-y-1">
-          <div className="text-label text-text-tertiary mb-2 px-4">ORGANIZE</div>
-          <Link href="/collections" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-surface hover:text-text-primary transition-colors">
-            <FolderOpen className="w-5 h-5" />
-            Collections
-          </Link>
-          <Link href="/tags" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-surface hover:text-text-primary transition-colors">
-            <Tag className="w-5 h-5" />
-            Tags
-          </Link>
-        </div>
-
-        <div className="space-y-1">
-          <div className="text-label text-text-tertiary mb-2 px-4">INSIGHTS</div>
-          <Link href="/analytics" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-surface hover:text-text-primary transition-colors">
-            <BarChart2 className="w-5 h-5" />
-            Analytics
-          </Link>
-        </div>
-
-        {role === 'admin' && (
-          <div className="space-y-1">
-            <div className="text-label text-text-tertiary mb-2 px-4">ORGANIZATION</div>
-            <Link href="/admin/analytics" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-surface hover:text-text-primary transition-colors">
-              <Users className="w-5 h-5" />
-              Org Analytics
             </Link>
           </div>
-        )}
+        </div>
 
+        {/* INSIGHTS Section */}
+        <div>
+          <div className="px-3 text-[11px] font-medium text-text-muted uppercase tracking-wider mb-2">INSIGHTS</div>
+          <div className="space-y-0.5">
+            <Link href="/analytics" className={getLinkClass('/analytics')}>
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </Link>
+            <Link href="/teams" className={getLinkClass('/teams')}>
+              <Users2 className="w-4 h-4" />
+              Teams
+            </Link>
+            <Link href="/settings" className={getLinkClass('/settings')}>
+              <Settings2 className="w-4 h-4" />
+              Settings
+            </Link>
+          </div>
+        </div>
       </nav>
 
-      <div className="p-4 border-t border-border-subtle space-y-1 shrink-0">
-        <Link href="/settings" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-surface hover:text-text-primary transition-colors">
-          <Settings className="w-5 h-5" />
-          Settings
-        </Link>
-        <div className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-body text-text-secondary hover:bg-danger-bg hover:text-danger-fg transition-colors text-left cursor-pointer">
-          <LogOut className="w-5 h-5" />
-          <SignOutButton />
+      {/* Streak Pill Card & User Account */}
+      <div className="p-4 mt-auto space-y-4">
+        <div className="bg-[#EEEDFE] p-4 rounded-xl flex items-start gap-3">
+          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+            <Flame className="w-4 h-4 text-[#D97706]" />
+          </div>
+          <div>
+            <div className="text-[13px] font-medium text-[#3C3489]">12-day streak</div>
+            <div className="text-[11px] text-[#666666]">Keep it up!</div>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-border-subtle flex items-center justify-between px-1">
+          <span className="text-[13px] font-medium text-[#666666]">Account</span>
+          <UserButton afterSignOutUrl="/" />
         </div>
       </div>
     </aside>

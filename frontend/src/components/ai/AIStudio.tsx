@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react';
-import { generateFromText, generateFromPDF } from '@/server/actions/ai';
+import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { generateFromText } from '@/server/actions/ai';
 import FlashcardDeck from '@/components/ai/FlashcardDeck';
 import MCQQuiz from '@/components/ai/MCQQuiz';
-import { Sparkles, Upload, FileText, Loader2, BookOpen, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Upload, FileText, Loader2, BookOpen, Brain, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import * as Tesseract from 'tesseract.js';
 
 type Mode = 'text' | 'pdf';
 type Tab = 'flashcards' | 'mcqs' | 'summary';
@@ -17,8 +19,11 @@ interface GenerationResult {
 }
 
 export default function AIStudio() {
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>('pdf');
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('flashcards');
@@ -26,6 +31,65 @@ export default function AIStudio() {
   const [fileName, setFileName] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Handle mode from query params
+  useEffect(() => {
+    const m = searchParams.get('mode') as Mode;
+    if (m && (m === 'pdf' || m === 'text')) {
+      setMode(m);
+    }
+  }, [searchParams]);
+
+  // Initialize PDF.js worker
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // @ts-ignore
+      import('pdfjs-dist/build/pdf.worker.min.mjs');
+    }
+  }, []);
+
+  const extractText = async (file: File): Promise<string> => {
+    const pdfjs = await import('pdfjs-dist');
+    pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    
+    setExtracting(true);
+    setProgress(0);
+
+    for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) { // Limit to 10 pages for free tier
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      
+      if (pageText.trim().length < 100) {
+        // Fallback to OCR for scanned pages
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        if (context) {
+          await page.render({ canvasContext: context, viewport }).promise;
+          const { data: { text } } = await Tesseract.recognize(canvas, 'eng', {
+            logger: m => {
+              if (m.status === 'recognizing text') setProgress(Math.round((i / pdf.numPages) * 100));
+            }
+          });
+          fullText += text + '\n';
+        }
+      } else {
+        fullText += pageText + '\n';
+      }
+      setProgress(Math.round((i / Math.min(pdf.numPages, 10)) * 100));
+    }
+    
+    setExtracting(false);
+    return fullText;
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,9 +99,27 @@ export default function AIStudio() {
 
     try {
       const formData = new FormData(e.currentTarget);
-      const res = mode === 'pdf'
-        ? await generateFromPDF(formData)
-        : await generateFromText(formData);
+      let content = '';
+      const title = formData.get('title') as string;
+
+      if (mode === 'pdf') {
+        const file = formData.get('pdf') as File;
+        if (!file) throw new Error('No file provided');
+        content = await extractText(file);
+      } else {
+        content = formData.get('content') as string;
+      }
+
+      if (!content || content.trim().length < 50) {
+        throw new Error('Could not extract enough text from this document. Please try a different file.');
+      }
+
+      // We use the text-based generator because we've already done the extraction
+      const apiFormData = new FormData();
+      apiFormData.append('title', title || (mode === 'pdf' ? fileName || '' : 'Untitled'));
+      apiFormData.append('content', content);
+
+      const res = await generateFromText(apiFormData);
       setResult(res);
       setTab('flashcards');
       formRef.current?.reset();
@@ -46,6 +128,7 @@ export default function AIStudio() {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+      setExtracting(false);
     }
   };
 
@@ -68,6 +151,7 @@ export default function AIStudio() {
         {(['pdf', 'text'] as Mode[]).map((m) => (
           <button
             key={m}
+            type="button"
             onClick={() => setMode(m)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-body-sm font-medium transition-all duration-150 ${mode === m ? 'bg-accent-glow text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
           >
@@ -113,7 +197,7 @@ export default function AIStudio() {
               <>
                 <Upload className="w-10 h-10 text-text-tertiary" />
                 <p className="text-body text-text-secondary">Drop your PDF here or <span className="text-accent-glow">browse</span></p>
-                <p className="text-micro text-text-tertiary">Supports any PDF — textbooks, notes, papers</p>
+                <p className="text-micro text-text-tertiary">Supports all PDFs including scanned textbooks & images</p>
               </>
             )}
           </div>
@@ -127,18 +211,29 @@ export default function AIStudio() {
         )}
 
         {error && (
-          <p className="text-danger-fg text-body-sm bg-danger-bg border border-danger-border rounded-md px-4 py-3">{error}</p>
+          <div className="flex gap-3 text-danger-fg text-body-sm bg-danger-bg border border-danger-border rounded-md px-4 py-3">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <p>{error}</p>
+          </div>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full h-12 bg-accent-glow hover:bg-accent-highlight disabled:opacity-60 text-white rounded-xl font-medium text-body transition-colors flex items-center justify-center gap-2"
+          className="w-full h-12 bg-accent-glow hover:bg-accent-highlight disabled:opacity-60 text-white rounded-xl font-medium text-body transition-colors flex flex-col items-center justify-center relative overflow-hidden"
         >
-          {loading ? (
-            <><Loader2 className="w-5 h-5 animate-spin" /> Generating with Gemini AI...</>
-          ) : (
-            <><Sparkles className="w-5 h-5" /> Generate Study Materials</>
+          <div className="flex items-center gap-2 relative z-10">
+            {loading ? (
+              <><Loader2 className="w-5 h-5 animate-spin" /> {extracting ? `Scanning Document (${progress}%)` : 'AI is thinking...'}</>
+            ) : (
+              <><Sparkles className="w-5 h-5" /> Generate Study Materials</>
+            )}
+          </div>
+          {extracting && (
+            <div 
+              className="absolute bottom-0 left-0 h-1 bg-white/30 transition-all duration-300" 
+              style={{ width: `${progress}%` }} 
+            />
           )}
         </button>
       </form>
@@ -187,3 +282,4 @@ export default function AIStudio() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-'use server'
+'use server' // Cache buster: 1
 
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/db';
@@ -20,23 +20,30 @@ export async function rateItem(srsId: number, rating: 'again' | 'hard' | 'good' 
   if (srs.resource && srs.resource.userId !== userId) throw new Error("Forbidden");
   if (srs.flashcard && srs.flashcard.userId !== userId) throw new Error("Forbidden");
 
-  let { interval, easeFactor } = srs;
+  let { interval, easeFactor, lapses, repetitions } = srs;
+  const oldEase = easeFactor.toNumber();
+  let newEase = oldEase;
 
   switch (rating) {
     case 'again':
       interval = 1;
-      easeFactor = Math.max(1.30, easeFactor.toNumber() - 0.20);
+      newEase = Math.max(1.30, oldEase - 0.20);
+      lapses += 1;
+      repetitions = 0;
       break;
     case 'hard':
       interval = Math.round(interval * 1.2);
-      easeFactor = Math.max(1.30, easeFactor.toNumber() - 0.15);
+      newEase = Math.max(1.30, oldEase - 0.15);
+      repetitions += 1;
       break;
     case 'good':
-      interval = Math.round(interval * easeFactor.toNumber());
+      interval = Math.round(interval * oldEase);
+      repetitions += 1;
       break;
     case 'easy':
-      interval = Math.round(interval * easeFactor.toNumber() * 1.3);
-      easeFactor = Math.min(4.0, easeFactor.toNumber() + 0.15);
+      interval = Math.round(interval * oldEase * 1.3);
+      newEase = Math.min(4.0, oldEase + 0.15);
+      repetitions += 1;
       break;
   }
 
@@ -44,15 +51,22 @@ export async function rateItem(srsId: number, rating: 'again' | 'hard' | 'good' 
   interval = Math.min(365, Math.max(1, interval));
   const dueDate = addDays(new Date(), interval);
   
+  const masteryLevel = Math.min(1.0, (repetitions * 0.1) + ((newEase - 1.3) * 0.1));
+  const retentionScore = 1.0 - (lapses / Math.max(1, lapses + repetitions));
+  
   await prisma.sRSData.update({
     where: { id: srsId },
     data: {
       interval,
-      easeFactor,
+      easeFactor: newEase,
       dueDate,
       lastReviewed: new Date(),
       skipCount: 0,
-      reviewCount: { increment: 1 }
+      reviewCount: { increment: 1 },
+      lapses,
+      repetitions,
+      masteryLevel,
+      retentionScore
     }
   });
 

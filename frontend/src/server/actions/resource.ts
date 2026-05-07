@@ -125,3 +125,17 @@ export async function saveResourceAction(formData: FormData) {
 
   return { success: true, resourceId: resource.id };
 }
+
+export async function deleteResourceAction(id: number) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  const resource = await prisma.resource.findUnique({ where: { id } });
+  if (!resource || resource.userId !== userId) throw new Error("Not found");
+
+  await prisma.resource.delete({ where: { id } });
+  
+  revalidatePath('/shelf');
+  revalidatePath('/dashboard');
+  revalidatePath('/review');
+}
