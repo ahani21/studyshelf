@@ -58,3 +58,5 @@ pnpm-debug.log*
 
 # --- PRISMA ---
 /src/generated/prisma
+
+.vercel
