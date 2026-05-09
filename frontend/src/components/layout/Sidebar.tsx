@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
-import { 
-  LayoutDashboard, 
-  Sparkles, 
-  Bookmark, 
-  BrainCircuit, 
-  BarChart3, 
-  Users2, 
+import {
+  LayoutDashboard,
+  Sparkles,
+  Bookmark,
+  BrainCircuit,
+  BarChart3,
+  Users2,
   Settings2,
   Flame,
   Library
@@ -17,14 +17,13 @@ import {
 
 export default function Sidebar() {
   const pathname = usePathname();
-  
+
   const getLinkClass = (path: string) => {
     const isActive = pathname === path;
-    return `flex items-center gap-3 px-3 py-2 rounded-md text-[13px] transition-colors ${
-      isActive 
-        ? "bg-[#EEEDFE] text-[#3C3489] font-medium" 
+    return `flex items-center gap-3 px-3 py-2 rounded-md text-[13px] transition-colors ${isActive
+        ? "bg-[#EEEDFE] text-[#3C3489] font-medium"
         : "text-[#666666] hover:bg-surface-raised hover:text-[#1A1A1A]"
-    }`;
+      }`;
   };
 
   return (
@@ -95,7 +94,7 @@ export default function Sidebar() {
 
         <div className="pt-4 border-t border-border-subtle flex items-center justify-between px-1">
           <span className="text-[13px] font-medium text-[#666666]">Account</span>
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
         </div>
       </div>
     </aside>
