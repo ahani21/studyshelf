@@ -116,6 +116,7 @@ export async function generateFromText(formData: FormData) {
       userId,
       title: sanitize(title || 'Untitled Note').substring(0, 255),
       description: generated.summary,
+      url: `studyshelf://note/${note.id}`, // Required field
       canonicalUrl: `studyshelf://note/${note.id}`, // Internal link
       imageUrl: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&q=80&w=400", // Default study image
     }
@@ -195,7 +196,8 @@ export async function generateFromPDF(formData: FormData) {
   
   let extractedText = '';
   try {
-    const pdfParse = (await import('pdf-parse')).default;
+    // @ts-ignore - pdf-parse can be tricky with dynamic imports in ESM
+    const pdfParse = (await import('pdf-parse')).default || (await import('pdf-parse'));
     const pdfData = await pdfParse(buffer);
     extractedText = sanitize(pdfData.text);
   } catch (e) {
@@ -229,6 +231,7 @@ export async function generateFromPDF(formData: FormData) {
       userId,
       title: sanitize(title || file.name.replace('.pdf', '')).substring(0, 255),
       description: generated.summary,
+      url: `studyshelf://pdf/${Date.now()}`, // Required field
       canonicalUrl: `studyshelf://pdf/${Date.now()}`, // Internal link
       imageUrl: "https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?auto=format&fit=crop&q=80&w=400", // Default PDF image
     }
