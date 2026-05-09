@@ -4,6 +4,8 @@ import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
+export const maxDuration = 60; // Increase timeout to 60s for PDF processing
+
 const OPENROUTER_API_KEY = process.env.LLM_API_KEY!;
 const MODEL = 'openai/gpt-oss-20b:free'; // Free model on OpenRouter
 
@@ -95,11 +97,15 @@ export async function generateFromText(formData: FormData) {
     create: { id: userId, email: `${userId}@studyshelf.app`, role: 'member' }
   });
 
+  console.log(`[AI] Generating from text for user: ${userId}`);
   const text = await callAI(sanitize(content));
 
+  console.log(`[AI] Sanitizing JSON response...`);
   // Strip markdown code fences if present
   const jsonText = text.replace(/^```json\n?/, '').replace(/\n?```$/, '').replace(/\u0000/g, '');
   const generated: GeneratedStudyMaterial = JSON.parse(jsonText);
+
+  console.log(`[AI] Saving note and resource...`);
 
   // Save note
   const note = await prisma.note.create({
@@ -191,30 +197,34 @@ export async function generateFromPDF(formData: FormData) {
   });
 
   // Extract text from PDF using pdf-parse
+  console.log(`[AI] Starting PDF extraction for: ${file.name}`);
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
   
   let extractedText = '';
   try {
-    // @ts-ignore - pdf-parse can be tricky with dynamic imports in ESM
+    console.log(`[AI] Parsing PDF buffer...`);
+    // @ts-ignore
     const pdfParse = (await import('pdf-parse')).default || (await import('pdf-parse'));
     const pdfData = await pdfParse(buffer);
     extractedText = sanitize(pdfData.text);
-  } catch (e) {
-    console.error('PDF parse error:', e);
-    throw new Error('Could not read PDF. Please make sure it contains selectable text (not a scanned image).');
+    console.log(`[AI] Extracted ${extractedText.length} characters.`);
+  } catch (e: any) {
+    console.error('[AI] PDF parse error:', e);
+    throw new Error(`PDF Error: ${e.message || 'Could not read PDF'}`);
   }
 
-  if (!extractedText || extractedText.trim().length < 50) {
-    throw new Error('PDF appears to be empty or contains only images. Please use a PDF with selectable text.');
+  if (!extractedText || extractedText.trim().length < 20) {
+    throw new Error('PDF appears to be empty or encrypted. Please use a PDF with selectable text.');
   }
 
-  // Truncate to avoid token limits (approx 12k chars = ~3k tokens)
-  const truncated = extractedText.substring(0, 12000);
-
+  const truncated = extractedText.substring(0, 15000);
+  console.log(`[AI] Calling Gemini API...`);
   const text = await callAI(truncated);
+  
   const jsonText = text.replace(/^```json\n?/, '').replace(/\n?```$/, '').replace(/\u0000/g, '');
   const generated: GeneratedStudyMaterial = JSON.parse(jsonText);
+  console.log(`[AI] Successfully generated content for PDF.`);
 
   // Save note with PDF summary
   const note = await prisma.note.create({
