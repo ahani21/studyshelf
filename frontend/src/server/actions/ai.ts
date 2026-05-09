@@ -110,6 +110,17 @@ export async function generateFromText(formData: FormData) {
     }
   });
 
+  // Save as Resource on Shelf
+  const resource = await prisma.resource.create({
+    data: {
+      userId,
+      title: sanitize(title || 'Untitled Note').substring(0, 255),
+      description: generated.summary,
+      canonicalUrl: `studyshelf://note/${note.id}`, // Internal link
+      imageUrl: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&q=80&w=400", // Default study image
+    }
+  });
+
   // Save flashcards with SRS
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -150,6 +161,8 @@ export async function generateFromText(formData: FormData) {
   }
 
   revalidatePath('/ai');
+  revalidatePath('/shelf');
+  revalidatePath('/dashboard');
 
   return {
     summary: generated.summary,
@@ -210,6 +223,17 @@ export async function generateFromPDF(formData: FormData) {
     }
   });
 
+  // Save as Resource on Shelf
+  const resource = await prisma.resource.create({
+    data: {
+      userId,
+      title: sanitize(title || file.name.replace('.pdf', '')).substring(0, 255),
+      description: generated.summary,
+      canonicalUrl: `studyshelf://pdf/${Date.now()}`, // Internal link
+      imageUrl: "https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?auto=format&fit=crop&q=80&w=400", // Default PDF image
+    }
+  });
+
   // Save flashcards with SRS
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -250,6 +274,8 @@ export async function generateFromPDF(formData: FormData) {
   }
 
   revalidatePath('/ai');
+  revalidatePath('/shelf');
+  revalidatePath('/dashboard');
 
   return {
     summary: generated.summary,

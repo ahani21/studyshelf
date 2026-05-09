@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../../frontend/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -104,6 +105,7 @@ model SRSData {
   repetitions   Int       @default(0)
   masteryLevel  Float     @default(0.0)
   retentionScore Float    @default(0.0)
+  lastRating    String?   // "AGAIN", "HARD", "GOOD", "EASY"
 
   resource      Resource?
   flashcard     Flashcard?

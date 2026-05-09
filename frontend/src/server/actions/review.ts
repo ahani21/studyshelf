@@ -66,7 +66,8 @@ export async function rateItem(srsId: number, rating: 'again' | 'hard' | 'good' 
       lapses,
       repetitions,
       masteryLevel,
-      retentionScore
+      retentionScore,
+      lastRating: rating.toUpperCase()
     }
   });
 

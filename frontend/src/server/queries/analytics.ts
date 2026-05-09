@@ -228,3 +228,43 @@ export async function getTodaysGoals() {
   ];
 }
 
+
+export async function getFlashcardCategories() {
+  const { userId } = await auth();
+  if (!userId) return { AGAIN: [], HARD: [], GOOD: [], EASY: [], NEW: [] };
+
+  const srsItems = await prisma.sRSData.findMany({
+    where: {
+      flashcard: { userId }
+    },
+    include: {
+      flashcard: true
+    }
+  });
+
+  const categories = {
+    AGAIN: [] as any[],
+    HARD: [] as any[],
+    GOOD: [] as any[],
+    EASY: [] as any[],
+    NEW: [] as any[]
+  };
+
+  srsItems.forEach(item => {
+    if (item.flashcard) {
+      if (item.lastRating) {
+        const rating = item.lastRating.toUpperCase();
+        if (categories[rating as keyof typeof categories]) {
+          categories[rating as keyof typeof categories].push(item.flashcard);
+        } else {
+          // Fallback just in case
+          categories.NEW.push(item.flashcard);
+        }
+      } else {
+        categories.NEW.push(item.flashcard);
+      }
+    }
+  });
+
+  return categories;
+}
