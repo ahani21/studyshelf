@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { getUserShelf, getUserCollections } from '@/server/queries/shelf';
 import ResourceCard from '@/components/shelf/ResourceCard';
 import SaveResourceModal from '@/components/shelf/SaveResourceModal';
@@ -32,7 +33,9 @@ export default async function ShelfPage({
         <SaveResourceModal collections={collections} />
       </header>
 
-      <FilterBar collections={collections} />
+      <Suspense fallback={<div className="h-14 bg-surface-inset border border-border-default rounded-xl animate-pulse" />}>
+        <FilterBar collections={collections} />
+      </Suspense>
 
       {resources.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-border-default rounded-2xl bg-surface-inset">

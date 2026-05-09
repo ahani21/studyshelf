@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Sparkles } from 'lucide-react';
 import AIStudio from '@/components/ai/AIStudio';
 
@@ -19,7 +20,9 @@ export default function AIPage() {
         </p>
       </header>
 
-      <AIStudio />
+      <Suspense fallback={<div className="h-48 flex items-center justify-center bg-surface-inset border border-border-default rounded-xl animate-pulse text-text-tertiary">Loading AI Studio...</div>}>
+        <AIStudio />
+      </Suspense>
     </div>
   );
 }
