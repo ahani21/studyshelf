@@ -19,6 +19,14 @@ const vars = envContent.split('\n')
     return { key, value };
   });
 
+// Add standard Clerk redirect variables
+vars.push(
+  { key: 'NEXT_PUBLIC_CLERK_SIGN_IN_URL', value: '/sign-in' },
+  { key: 'NEXT_PUBLIC_CLERK_SIGN_UP_URL', value: '/sign-up' },
+  { key: 'NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL', value: '/dashboard' },
+  { key: 'NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL', value: '/dashboard' }
+);
+
 console.log(`Found ${vars.length} variables to push.`);
 
 for (const { key, value } of vars) {
