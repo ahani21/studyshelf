@@ -73,7 +73,8 @@ export default function AIStudio() {
         canvas.width = viewport.width;
 
         if (context) {
-          await page.render({ canvasContext: context, viewport }).promise;
+          // @ts-ignore - Some versions of pdfjs-dist types require 'canvas' element explicitly
+          await page.render({ canvasContext: context, viewport, canvas }).promise;
           const { data: { text } } = await Tesseract.recognize(canvas, 'eng', {
             logger: m => {
               if (m.status === 'recognizing text') setProgress(Math.round((i / pdf.numPages) * 100));
