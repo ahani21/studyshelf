@@ -4,8 +4,6 @@ import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
-export const maxDuration = 60; // Increase timeout to 60s for PDF processing
-
 const OPENROUTER_API_KEY = process.env.LLM_API_KEY!;
 const MODEL = 'openai/gpt-oss-20b:free'; // Free model on OpenRouter
 

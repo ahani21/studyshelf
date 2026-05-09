@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import { Sparkles } from 'lucide-react';
 import AIStudio from '@/components/ai/AIStudio';
 
+export const maxDuration = 60;
+
 export const metadata = {
   title: 'AI Studio | StudyShelf',
   description: 'Upload PDFs or paste notes to generate flashcards, quizzes, and summaries using AI.'
